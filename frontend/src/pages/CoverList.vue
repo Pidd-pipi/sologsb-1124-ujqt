@@ -5,6 +5,7 @@ import { ElMessage } from 'element-plus'
 import type { UploadFile } from 'element-plus'
 import CoverCard from '@/components/common/CoverCard.vue'
 import ScarceTag from '@/components/common/ScarceTag.vue'
+import BatchReeditDialog from '@/components/batch/BatchReeditDialog.vue'
 import { useCatalogFilter } from '@/hooks/useCatalogFilter'
 import { useCoverStore } from '@/stores/coverStore'
 import { usePostmarkStore } from '@/stores/postmarkStore'
@@ -25,6 +26,7 @@ const { filters, filtered, activeCount, reset } = useCatalogFilter<Cover>('cover
 
 const viewMode = ref<'card' | 'table'>('card')
 const dialogVisible = ref(false)
+const batchDialogVisible = ref(false)
 const form = reactive<Cover>(createEmptyCover())
 const frontImage = ref<ImagePayload | null>(null)
 const backImage = ref<ImagePayload | null>(null)
@@ -159,6 +161,10 @@ function pmLabel(id: number): string {
   return postmarkStore.labelOf(id)
 }
 
+function repairOf(cover: Cover) {
+  return coverStore.repairStateOf(cover)
+}
+
 function routeLabel(routeId: number | null): string {
   if (routeId == null) return '未挂邮路'
   const route = routeStore.byId(routeId)
@@ -180,6 +186,7 @@ function routeLabel(routeId: number | null): string {
           <el-radio-button value="card">卡片</el-radio-button>
           <el-radio-button value="table">表格</el-radio-button>
         </el-radio-group>
+        <el-button @click="batchDialogVisible = true">批量重编</el-button>
         <el-button type="primary" @click="openCreate">登记实寄封</el-button>
       </div>
     </header>
@@ -231,12 +238,24 @@ function routeLabel(routeId: number | null): string {
         :cover="cover"
         :stamp-count="coverStore.frankingCount(cover)"
         :pm-count="coverStore.cancelCount(cover)"
+        :needs-repair="repairOf(cover).needsRepair"
         @select="openDetail"
       />
     </div>
 
     <el-table v-else :data="filtered" border stripe @row-click="openDetail">
-      <el-table-column prop="coverNo" label="封号" width="110" />
+      <el-table-column prop="coverNo" label="封号" width="110">
+        <template #default="{ row }">
+          {{ row.coverNo }}
+          <el-tag
+            v-if="repairOf(row).needsRepair"
+            size="small"
+            type="danger"
+            effect="dark"
+            style="margin-left: 6px"
+          >待修</el-tag>
+        </template>
+      </el-table-column>
       <el-table-column label="收寄地" min-width="170">
         <template #default="{ row }">{{ row.sentFrom }} → {{ row.sentTo }}</template>
       </el-table-column>
@@ -468,6 +487,8 @@ function routeLabel(routeId: number | null): string {
         </li>
       </ul>
     </section>
+
+    <BatchReeditDialog v-model="batchDialogVisible" :candidates="filtered" />
   </div>
 </template>
 

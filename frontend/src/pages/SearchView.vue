@@ -63,6 +63,10 @@ function openCover(cover: Cover): void {
   if (typeof cover.id === 'number') void router.push(`/covers/${cover.id}`)
 }
 
+function repairOf(cover: Cover) {
+  return coverStore.repairStateOf(cover)
+}
+
 function openRoute(route: PostalRoute): void {
   if (typeof route.id === 'number') void router.push(`/routes/${route.id}`)
 }
@@ -172,6 +176,7 @@ function resetAll(): void {
           :cover="cover"
           :stamp-count="coverStore.frankingCount(cover)"
           :pm-count="coverStore.cancelCount(cover)"
+          :needs-repair="repairOf(cover).needsRepair"
           @select="openCover"
         />
       </div>

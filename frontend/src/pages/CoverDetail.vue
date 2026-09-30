@@ -188,6 +188,9 @@ const cancelPostmarks = computed<Postmark[]>(() =>
     .filter((pm): pm is Postmark => pm != null)
 )
 
+/** 待修状态：关联邮戳 / 邮路是否悬空（与检索页同一判定）。 */
+const repairState = computed(() => (cover.value ? coverStore.repairStateOf(cover.value) : null))
+
 function onTimelineSelect(node: TimelineNode): void {
   if (node.kind === 'transit') ElMessage.info(`中转节点：${node.office}（${node.mark}）`)
 }
@@ -226,6 +229,18 @@ function openRoute(): void {
     <p v-if="error" class="gb-empty">{{ error }}</p>
 
     <template v-else-if="cover">
+      <el-alert
+        v-if="repairState?.needsRepair"
+        type="error"
+        :closable="false"
+        class="cover-detail__repair"
+        title="待修：本封关联了不存在的邮戳或邮路"
+      >
+        <ul class="cover-detail__repair-list">
+          <li v-for="(reason, i) in repairState.reasons" :key="i">{{ reason }}</li>
+        </ul>
+      </el-alert>
+
       <section class="gb-panel">
         <h2 class="gb-panel__title">寄递事实</h2>
         <dl class="gb-facts">
@@ -446,5 +461,13 @@ function openRoute(): void {
   max-width: 100%;
   border-radius: 8px;
   margin-bottom: 10px;
+}
+.cover-detail__repair {
+  margin-bottom: 14px;
+}
+.cover-detail__repair-list {
+  margin: 4px 0 0;
+  padding-left: 18px;
+  font-size: 13px;
 }
 </style>

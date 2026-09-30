@@ -40,6 +40,10 @@ export interface Cover {
   frontImage: string
   /** 封面背面图（缩略 dataURL；原图存 assets 表） */
   backImage: string
+  /** 是否待修：指向不存在的邮戳 / 邮路（旧数据升级时归入待修） */
+  needsRepair: boolean
+  /** 待修原因，如「关联邮戳 #99 不存在」「所属邮路 #7 不存在」 */
+  repairReasons: string[]
   note: string
   createdAt: string
   updatedAt: string
@@ -66,6 +70,8 @@ export function createEmptyCover(): Cover {
     storageAlbum: '',
     frontImage: '',
     backImage: '',
+    needsRepair: false,
+    repairReasons: [],
     note: '',
     createdAt: '',
     updatedAt: ''

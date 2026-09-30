@@ -4,7 +4,10 @@ import { db, saveAsset } from '@/utils/db'
 import type { Cover, FrankingItem } from '@/types/cover'
 import type { StamplessEntry } from '@/types/stampentry'
 import { nextSerialNo, nowIso } from '@/utils/id'
+import { coverRepairState, idSetOf, type CoverRepairState } from '@/utils/coverRepair'
 import type { ImagePayload } from './postmarkStore'
+import { usePostmarkStore } from './postmarkStore'
+import { useRouteStore } from './routeStore'
 
 export const useCoverStore = defineStore('cover', () => {
   const list = ref<Cover[]>([])
@@ -110,6 +113,17 @@ export const useCoverStore = defineStore('cover', () => {
     return (routeId: number): Cover[] => list.value.filter((c) => c.routeId === routeId)
   })
 
+  /** 实时计算封的「待修」状态：关联邮戳 / 邮路是否悬空（详情页与检索页共用同一结果）。 */
+  function repairStateOf(cover: Cover): CoverRepairState {
+    const postmarkStore = usePostmarkStore()
+    const routeStore = useRouteStore()
+    return coverRepairState(
+      cover,
+      idSetOf(postmarkStore.list),
+      idSetOf(routeStore.list)
+    )
+  }
+
   const total = computed(() => list.value.length)
   const registeredCount = computed(() => list.value.filter((c) => c.registered).length)
 
@@ -121,6 +135,7 @@ export const useCoverStore = defineStore('cover', () => {
     total,
     registeredCount,
     coversOfRoute,
+    repairStateOf,
     load,
     nextCoverNo,
     create,

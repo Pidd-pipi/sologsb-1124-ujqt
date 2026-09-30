@@ -10,9 +10,11 @@ const props = withDefaults(
     stampCount?: number
     /** 关联邮戳数，行内展示 */
     pmCount?: number
+    /** 是否待修（关联邮戳 / 邮路悬空） */
+    needsRepair?: boolean
     active?: boolean
   }>(),
-  { stampCount: 0, pmCount: 0, active: false }
+  { stampCount: 0, pmCount: 0, needsRepair: false, active: false }
 )
 
 const emit = defineEmits<{ select: [cover: Cover] }>()
@@ -36,6 +38,7 @@ function routeText(cover: Cover): string {
       <header class="cover-card__head">
         <span class="cover-card__no">{{ cover.coverNo }}</span>
         <span class="cover-card__tags">
+          <el-tag v-if="needsRepair" size="small" type="danger" effect="dark">待修</el-tag>
           <el-tag v-if="cover.registered" size="small" type="danger" effect="plain">给据</el-tag>
           <ScarceTag :level="cover.conditionGrade" kind="grade" />
         </span>
