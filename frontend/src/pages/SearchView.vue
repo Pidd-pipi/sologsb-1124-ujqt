@@ -5,6 +5,7 @@ import CoverCard from '@/components/common/CoverCard.vue'
 import ScarceTag from '@/components/common/ScarceTag.vue'
 import StampCard from '@/components/common/StampCard.vue'
 import { useCatalogFilter } from '@/hooks/useCatalogFilter'
+import { useLinkIntegrity } from '@/hooks/useLinkIntegrity'
 import { useCoverStore } from '@/stores/coverStore'
 import { usePostmarkStore } from '@/stores/postmarkStore'
 import { useRouteStore } from '@/stores/routeStore'
@@ -27,6 +28,7 @@ const groups = reactive({ postmark: true, cover: true, route: true })
 const pmFilter = useCatalogFilter<Postmark>('postmark', computed(() => postmarkStore.list))
 const coverFilter = useCatalogFilter<Cover>('cover', computed(() => coverStore.list))
 const routeFilter = useCatalogFilter<PostalRoute>('route', computed(() => routeStore.list))
+const integrity = useLinkIntegrity()
 
 const eraHint = computed(() => {
   const range = parseEraRange(era.value)
@@ -154,6 +156,9 @@ function resetAll(): void {
               <el-option label="仅平信" value="no" />
             </el-select>
           </el-form-item>
+          <el-form-item label="待修">
+            <el-checkbox v-model="coverFilter.filters.repairOnly">仅看待修</el-checkbox>
+          </el-form-item>
           <el-form-item label="排序">
             <el-select v-model="coverFilter.filters.sortKey" style="width: 140px">
               <el-option label="最近更新" value="recent" />
@@ -172,6 +177,7 @@ function resetAll(): void {
           :cover="cover"
           :stamp-count="coverStore.frankingCount(cover)"
           :pm-count="coverStore.cancelCount(cover)"
+          :broken="integrity.isBroken(cover)"
           @select="openCover"
         />
       </div>

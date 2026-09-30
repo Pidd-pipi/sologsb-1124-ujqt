@@ -22,6 +22,8 @@ export interface CatalogFilters {
   conditionGrade: string
   /** 是否给据邮件 */
   registered: '' | 'yes' | 'no'
+  /** 仅看待修实寄封（指向不存在的邮戳 / 邮路） */
+  repairOnly: boolean
   /** 运输方式 */
   transport: string
   sortKey: SortKey
@@ -39,6 +41,7 @@ export function defaultFilters(): CatalogFilters {
     scarceLevel: '',
     conditionGrade: '',
     registered: '',
+    repairOnly: false,
     transport: '',
     sortKey: 'recent'
   }
@@ -145,6 +148,7 @@ export function useCatalogFilter<T>(
         }
         if (filters.registered === 'yes' && row.registered !== true) return false
         if (filters.registered === 'no' && row.registered !== false) return false
+        if (filters.repairOnly && row.needRepair !== true) return false
         if (office) {
           const hay = `${textOf(row.sentFrom)} ${textOf(row.sentTo)}`.toLowerCase()
           if (!hay.includes(office)) return false

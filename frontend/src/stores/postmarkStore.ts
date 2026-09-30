@@ -1,6 +1,6 @@
 import { computed, ref } from 'vue'
 import { defineStore } from 'pinia'
-import { db, saveAsset } from '@/utils/db'
+import { db, recomputeRepairFlags, saveAsset } from '@/utils/db'
 import type { Postmark } from '@/types/postmark'
 import { nextSerialNo, nowIso } from '@/utils/id'
 
@@ -61,6 +61,7 @@ export const usePostmarkStore = defineStore('postmark', () => {
 
   async function remove(id: number): Promise<void> {
     await db.postmarks.delete(id)
+    await recomputeRepairFlags()
     await load()
   }
 

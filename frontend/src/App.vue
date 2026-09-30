@@ -4,12 +4,14 @@ import { useRoute, useRouter } from 'vue-router'
 import { useCoverStore } from '@/stores/coverStore'
 import { usePostmarkStore } from '@/stores/postmarkStore'
 import { useRouteStore } from '@/stores/routeStore'
+import { useLinkIntegrity } from '@/hooks/useLinkIntegrity'
 
 const current = useRoute()
 const router = useRouter()
 const postmarkStore = usePostmarkStore()
 const coverStore = useCoverStore()
 const routeStore = useRouteStore()
+const integrity = useLinkIntegrity()
 
 const activeMenu = computed(() => {
   const path = current.path
@@ -52,6 +54,15 @@ onMounted(async () => {
       <el-menu :default-active="activeMenu" mode="horizontal" router :ellipsis="false" class="app-nav">
         <el-menu-item index="/postmarks">邮戳目录</el-menu-item>
         <el-menu-item index="/covers">实寄封目录</el-menu-item>
+        <el-menu-item index="/covers-batch-rebuild">
+          批量重编
+          <el-badge
+            v-if="integrity.repairCount.value"
+            :value="integrity.repairCount.value"
+            class="app-nav__badge"
+            type="danger"
+          />
+        </el-menu-item>
         <el-menu-item index="/search">综合检索</el-menu-item>
       </el-menu>
       <div class="app-aside">
@@ -123,6 +134,9 @@ onMounted(async () => {
   border-bottom: none !important;
   flex: 1;
   min-width: 280px;
+}
+.app-nav__badge {
+  margin-left: 6px;
 }
 .app-aside {
   display: flex;

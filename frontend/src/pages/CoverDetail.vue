@@ -7,6 +7,7 @@ import RouteTimeline from '@/components/common/RouteTimeline.vue'
 import ScarceTag from '@/components/common/ScarceTag.vue'
 import StampCard from '@/components/common/StampCard.vue'
 import { useCoverRoute } from '@/hooks/useCoverRoute'
+import { useLinkIntegrity } from '@/hooks/useLinkIntegrity'
 import { useCoverStore } from '@/stores/coverStore'
 import { usePostmarkStore } from '@/stores/postmarkStore'
 import { useRouteStore } from '@/stores/routeStore'
@@ -20,6 +21,7 @@ import {
 } from '@/types/stampentry'
 import { CONDITION_GRADES } from '@/types/cover'
 import { loadAssets, saveAsset } from '@/utils/db'
+import { missingLinkLabel } from '@/utils/linkIntegrity'
 import { nowIso } from '@/utils/id'
 
 const props = defineProps<{ id: string }>()
@@ -35,6 +37,10 @@ const coverId = computed<number | null>(() => {
 
 const { cover, route, timeline, transitDays, missingDateNodes, chronological, error, load } =
   useCoverRoute(coverId)
+
+const integrity = useLinkIntegrity()
+const brokenLinks = computed(() => integrity.linksOf(cover.value))
+const isBroken = computed(() => integrity.isBroken(cover.value))
 
 const frontUrl = ref('')
 const backUrl = ref('')
@@ -224,6 +230,24 @@ function openRoute(): void {
     </header>
 
     <p v-if="error" class="gb-empty">{{ error }}</p>
+
+    <el-alert
+      v-else-if="isBroken"
+      type="error"
+      show-icon
+      :closable="false"
+      class="cover-detail__repair"
+      title="该封为待修：存在指向已不存在邮戳或邮路的关联"
+    >
+      <div class="cover-detail__repair-links">
+        <el-tag v-for="(link, i) in brokenLinks" :key="i" size="small" type="danger" effect="plain" class="cover-detail__repair-tag">
+          {{ missingLinkLabel(link) }}
+        </el-tag>
+        <el-button size="small" type="warning" plain @click="router.push('/covers-batch-rebuild')">
+          去批量重编修复
+        </el-button>
+      </div>
+    </el-alert>
 
     <template v-else-if="cover">
       <section class="gb-panel">
@@ -434,6 +458,18 @@ function openRoute(): void {
   border: 1px solid #ecd3a5;
   border-radius: 8px;
   padding: 6px 10px;
+}
+.cover-detail__repair {
+  margin-bottom: 16px;
+}
+.cover-detail__repair-links {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.cover-detail__repair-tag {
+  margin: 2px 0;
 }
 .cover-detail__section-head {
   display: flex;

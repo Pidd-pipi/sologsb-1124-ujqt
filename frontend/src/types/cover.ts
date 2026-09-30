@@ -41,6 +41,12 @@ export interface Cover {
   /** 封面背面图（缩略 dataURL；原图存 assets 表） */
   backImage: string
   note: string
+  /**
+   * 待修标记：该封指向了不存在的邮戳或邮路。
+   * 旧数据升级迁移时按实际引用归入；待修明细统一由 useLinkIntegrity 核算，
+   * 目录、详情、检索三处共用同一判定结果。
+   */
+  needRepair: boolean
   createdAt: string
   updatedAt: string
 }
@@ -67,6 +73,7 @@ export function createEmptyCover(): Cover {
     frontImage: '',
     backImage: '',
     note: '',
+    needRepair: false,
     createdAt: '',
     updatedAt: ''
   }

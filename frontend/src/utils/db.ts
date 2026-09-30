@@ -8,10 +8,12 @@ import type { Cover } from '@/types/cover'
 import type { PostalRoute } from '@/types/route'
 import type { StamplessEntry } from '@/types/stampentry'
 import type { AssetOwnerType, AssetSide, CatalogAsset } from '@/types/asset'
+import type { BatchUndoSnapshot } from '@/utils/batchRebuild'
+import { idSet } from '@/utils/linkIntegrity'
 
 export const DB_NAME = 'gbpostmark'
 /** 当前数据结构版本号，升级迁移写在下面对应的 version() 中 */
-export const DB_VERSION = 2
+export const DB_VERSION = 3
 
 export class GbPostmarkDatabase extends Dexie {
   postmarks!: Table<Postmark, number>
@@ -20,6 +22,8 @@ export class GbPostmarkDatabase extends Dexie {
   stampEntries!: Table<StamplessEntry, number>
   /** 戳样 / 封图原图，单独建表 */
   assets!: Table<CatalogAsset, number>
+  /** 批量重编撤销快照，只保留最近一次成功批次（固定主键 1） */
+  batchMeta!: Table<BatchUndoSnapshot, number>
 
   constructor() {
     super(DB_NAME)
@@ -73,6 +77,46 @@ export class GbPostmarkDatabase extends Dexie {
             if (typeof rt.totalDays !== 'number') rt.totalDays = 0
           })
       })
+
+    // v3：批量重编需要替代关系与撤销快照；把指向不存在邮戳 / 邮路的实寄封归入待修。
+    this.version(DB_VERSION)
+      .stores({
+        postmarks:
+          '++id, pmNo, type, office, province, yearFrom, yearTo, scarceLevel, inkColor, bilingual, supersedesId',
+        covers:
+          '++id, coverNo, sentFrom, sentTo, postDate, conditionGrade, registered, routeId, acquireFrom, needRepair',
+        routes:
+          '++id, routeNo, name, era, transport, totalDays, supersedesId',
+        stampEntries: '++id, coverId, stampName, variety, issueYear',
+        assets: '++id, ownerType, ownerId, side, [ownerType+ownerId]',
+        batchMeta: '++id'
+      })
+      .upgrade(async (tx) => {
+        await tx
+          .table('postmarks')
+          .toCollection()
+          .modify((pm: Partial<Postmark>) => {
+            if (typeof pm.supersedesId !== 'number') pm.supersedesId = null
+          })
+        await tx
+          .table('routes')
+          .toCollection()
+          .modify((rt: Partial<PostalRoute>) => {
+            if (typeof rt.supersedesId !== 'number') rt.supersedesId = null
+          })
+        const postmarkIds = idSet(await tx.table<Postmark, number>('postmarks').toArray())
+        const routeIds = idSet(await tx.table<PostalRoute, number>('routes').toArray())
+        await tx
+          .table('covers')
+          .toCollection()
+          .modify((cv: Partial<Cover>) => {
+            if (!Array.isArray(cv.cancelPmIds)) cv.cancelPmIds = []
+            const missingPm = cv.cancelPmIds.some((id) => !postmarkIds.has(id))
+            const missingRoute =
+              typeof cv.routeId === 'number' && !routeIds.has(cv.routeId)
+            cv.needRepair = Boolean(missingPm || missingRoute)
+          })
+      })
   }
 }
 
@@ -82,6 +126,24 @@ export const db = new GbPostmarkDatabase()
 export async function initDatabase(): Promise<void> {
   await db.open()
   await seedIfEmpty()
+}
+
+/**
+ * 按现存邮戳 / 邮路重算全部实寄封的待修标记。
+ * 删除邮戳或邮路后调用，保证持久化标记与 useLinkIntegrity 的实时判定一致。
+ */
+export async function recomputeRepairFlags(): Promise<void> {
+  const [postmarkIds, routeIds] = await Promise.all([
+    db.postmarks.toCollection().keys(),
+    db.routes.toCollection().keys()
+  ])
+  const pmSet = new Set(postmarkIds.map(Number))
+  const routeSet = new Set(routeIds.map(Number))
+  await db.covers.toCollection().modify((cover) => {
+    const missingPm = cover.cancelPmIds.some((id) => !pmSet.has(id))
+    const missingRoute = typeof cover.routeId === 'number' && !routeSet.has(cover.routeId)
+    cover.needRepair = Boolean(missingPm || missingRoute)
+  })
 }
 
 /** 写入或覆盖一张原图（同 owner + side 视为同一张）。 */
@@ -142,7 +204,9 @@ function svgDataUrl(svg: string): string {
 }
 
 /** 依据戳面信息合成一张戳样图，用作样例数据的戳样。 */
-function postmarkSampleDataUrl(pm: Postmark): string {
+function postmarkSampleDataUrl(
+  pm: Pick<Postmark, 'type' | 'office' | 'inkColor' | 'diameter' | 'lettering' | 'yearFrom' | 'yearTo'>
+): string {
   const ink = INK_HEX[pm.inkColor] ?? '#2f2a26'
   const r = 46 + Math.min(18, Math.max(0, pm.diameter - 24))
   const svg = [
@@ -177,7 +241,11 @@ function coverThumbDataUrl(coverNo: string, from: string, to: string, date: stri
 const SEED_TS = '2024-05-01T09:00:00.000Z'
 
 function seedPostmarks(): Postmark[] {
-  const base = (pm: Postmark): Postmark => ({ ...pm, imageDataUrl: postmarkSampleDataUrl(pm) })
+  const base = (pm: Omit<Postmark, 'supersedesId'>): Postmark => ({
+    ...pm,
+    imageDataUrl: postmarkSampleDataUrl(pm),
+    supersedesId: null
+  })
   return [
     base({
       id: 1,
@@ -297,7 +365,7 @@ function seedPostmarks(): Postmark[] {
 }
 
 function seedRoutes(): PostalRoute[] {
-  return [
+  const rows: Array<Omit<PostalRoute, 'supersedesId'>> = [
     {
       id: 1,
       routeNo: 'RT-0001',
@@ -354,10 +422,11 @@ function seedRoutes(): PostalRoute[] {
       updatedAt: SEED_TS
     }
   ]
+  return rows.map((r) => ({ ...r, supersedesId: null }))
 }
 
 function seedCovers(): Cover[] {
-  return [
+  const rows: Array<Omit<Cover, 'needRepair'>> = [
     {
       id: 1,
       coverNo: 'CV-0001',
@@ -453,6 +522,7 @@ function seedCovers(): Cover[] {
       updatedAt: SEED_TS
     }
   ]
+  return rows.map((c) => ({ ...c, needRepair: false }))
 }
 
 function seedStampEntries(): StamplessEntry[] {
@@ -535,9 +605,13 @@ export async function seedIfEmpty(): Promise<void> {
   const covers = seedCovers()
   const entries = seedStampEntries()
   await db.transaction('rw', db.postmarks, db.covers, db.routes, db.stampEntries, async () => {
-    await db.postmarks.bulkPut(postmarks)
-    await db.routes.bulkPut(routes)
-    await db.covers.bulkPut(covers)
+    await db.postmarks.bulkPut(
+      postmarks.map((p) => ({ ...p, supersedesId: p.supersedesId ?? null }) as Postmark)
+    )
+    await db.routes.bulkPut(
+      routes.map((r) => ({ ...r, supersedesId: r.supersedesId ?? null }) as PostalRoute)
+    )
+    await db.covers.bulkPut(covers.map((c) => ({ ...c, needRepair: c.needRepair ?? false }) as Cover))
     await db.stampEntries.bulkPut(entries)
   })
 }

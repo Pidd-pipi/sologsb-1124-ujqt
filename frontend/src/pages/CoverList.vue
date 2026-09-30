@@ -6,6 +6,7 @@ import type { UploadFile } from 'element-plus'
 import CoverCard from '@/components/common/CoverCard.vue'
 import ScarceTag from '@/components/common/ScarceTag.vue'
 import { useCatalogFilter } from '@/hooks/useCatalogFilter'
+import { useLinkIntegrity } from '@/hooks/useLinkIntegrity'
 import { useCoverStore } from '@/stores/coverStore'
 import { usePostmarkStore } from '@/stores/postmarkStore'
 import { useRouteStore } from '@/stores/routeStore'
@@ -22,6 +23,7 @@ const routeStore = useRouteStore()
 
 const source = computed(() => coverStore.list)
 const { filters, filtered, activeCount, reset } = useCatalogFilter<Cover>('cover', source)
+const integrity = useLinkIntegrity()
 
 const viewMode = ref<'card' | 'table'>('card')
 const dialogVisible = ref(false)
@@ -164,6 +166,10 @@ function routeLabel(routeId: number | null): string {
   const route = routeStore.byId(routeId)
   return route ? `${route.routeNo} ${route.name}` : `邮路 #${routeId}`
 }
+
+function openBatchRebuild(): void {
+  void router.push('/covers-batch-rebuild')
+}
 </script>
 
 <template>
@@ -180,6 +186,7 @@ function routeLabel(routeId: number | null): string {
           <el-radio-button value="card">卡片</el-radio-button>
           <el-radio-button value="table">表格</el-radio-button>
         </el-radio-group>
+        <el-button type="warning" plain @click="openBatchRebuild">批量重编</el-button>
         <el-button type="primary" @click="openCreate">登记实寄封</el-button>
       </div>
     </header>
@@ -208,6 +215,9 @@ function routeLabel(routeId: number | null): string {
             <el-option label="仅平信" value="no" />
           </el-select>
         </el-form-item>
+        <el-form-item label="关联状态">
+          <el-checkbox v-model="filters.repairOnly">仅看待修（{{ integrity.repairCount.value }}）</el-checkbox>
+        </el-form-item>
         <el-form-item label="排序">
           <el-select v-model="filters.sortKey" style="width: 150px">
             <el-option label="最近更新" value="recent" />
@@ -231,6 +241,7 @@ function routeLabel(routeId: number | null): string {
         :cover="cover"
         :stamp-count="coverStore.frankingCount(cover)"
         :pm-count="coverStore.cancelCount(cover)"
+        :broken="integrity.isBroken(cover)"
         @select="openDetail"
       />
     </div>
@@ -257,6 +268,12 @@ function routeLabel(routeId: number | null): string {
       <el-table-column label="品相" width="90">
         <template #default="{ row }">
           <ScarceTag :level="row.conditionGrade" kind="grade" />
+        </template>
+      </el-table-column>
+      <el-table-column label="状态" width="80">
+        <template #default="{ row }">
+          <el-tag v-if="integrity.isBroken(row)" size="small" type="danger" effect="dark">待修</el-tag>
+          <el-tag v-else size="small" type="success" effect="plain">完整</el-tag>
         </template>
       </el-table-column>
       <el-table-column label="给据" width="80">

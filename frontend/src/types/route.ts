@@ -38,6 +38,11 @@ export interface PostalRoute {
   /** 班期，如「逐日班」「隔日班」 */
   frequency: string
   remark: string
+  /**
+   * 替代关系：批量重编时为保留被其他实寄封共用的旧邮路而新建此邮路，
+   * 这里记录原邮路 id；原位补登（旧邮路对象本就不存在）时为 null。
+   */
+  supersedesId: number | null
   createdAt: string
   updatedAt: string
 }
@@ -55,6 +60,7 @@ export function createEmptyRoute(): PostalRoute {
     totalDays: 0,
     frequency: '',
     remark: '',
+    supersedesId: null,
     createdAt: '',
     updatedAt: ''
   }

@@ -22,6 +22,12 @@ const routes: RouteRecordRaw[] = [
     meta: { title: '实寄封详情' }
   },
   {
+    path: '/covers-batch-rebuild',
+    name: 'cover-batch-rebuild',
+    component: () => import('@/pages/BatchRebuild.vue'),
+    meta: { title: '批量重编' }
+  },
+  {
     path: '/routes/:id',
     name: 'route-editor',
     component: () => import('@/pages/RouteEditor.vue'),

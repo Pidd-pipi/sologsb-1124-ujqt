@@ -44,6 +44,11 @@ export interface Postmark {
   /** 戳样图（缩略 dataURL；原图存 assets 表） */
   imageDataUrl: string
   note: string
+  /**
+   * 替代关系：批量重编时为保留被其他实寄封共用的旧戳而新建此戳，
+   * 这里记录原邮戳 id；原位补登（旧戳对象本就不存在）时为 null。
+   */
+  supersedesId: number | null
   createdAt: string
   updatedAt: string
 }
@@ -93,6 +98,7 @@ export function createEmptyPostmark(): Postmark {
     scarceLevel: '常见',
     imageDataUrl: '',
     note: '',
+    supersedesId: null,
     createdAt: '',
     updatedAt: ''
   }

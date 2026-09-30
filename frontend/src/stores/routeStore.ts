@@ -1,6 +1,6 @@
 import { computed, ref } from 'vue'
 import { defineStore } from 'pinia'
-import { db } from '@/utils/db'
+import { db, recomputeRepairFlags } from '@/utils/db'
 import type { PostalRoute, RouteNode } from '@/types/route'
 import { daysBetween, isValidDate } from '@/utils/dateRange'
 import { nextSerialNo, nowIso, uid } from '@/utils/id'
@@ -62,6 +62,7 @@ export const useRouteStore = defineStore('route', () => {
 
   async function remove(id: number): Promise<void> {
     await db.routes.delete(id)
+    await recomputeRepairFlags()
     await load()
   }
 
